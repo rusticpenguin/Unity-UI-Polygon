@@ -1,7 +1,6 @@
 /// Credit CiaccoDavide
 /// Sourced from - http://ciaccodavi.de/unity/uipolygon
 
-using System.Collections.Generic;
 
 namespace UnityEngine.UI.Extensions
 {
@@ -18,6 +17,8 @@ namespace UnityEngine.UI.Extensions
         public float rotation = 0;
         [Range(0, 1)]
         public float[] VerticesDistances = new float[3];
+        [Tooltip("Keeps the image height/width locked to the lower of the two")]
+        public bool lockAspectRatio = false;
         private float size = 0;
 
         public override Texture mainTexture
@@ -62,11 +63,7 @@ namespace UnityEngine.UI.Extensions
         }
         void Update()
         {
-            size = rectTransform.rect.width;
-            if (rectTransform.rect.width > rectTransform.rect.height)
-                size = rectTransform.rect.height;
-            else
-                size = rectTransform.rect.width;
+            size = Mathf.Min(rectTransform.rect.width, rectTransform.rect.height);
             thickness = (float)Mathf.Clamp(thickness, 0, size / 2);
         }
         protected UIVertex[] SetVbo(Vector2[] vertices, Vector2[] uvs)
@@ -104,27 +101,44 @@ namespace UnityEngine.UI.Extensions
             }
             // last vertex is also the first!
             VerticesDistances[vertices - 1] = VerticesDistances[0];
+
+            Rect rect = rectTransform.rect;
+            Vector2 center = rect.center;
+            float radiusX = rect.width * 0.5f;
+            float radiusY = rect.height * 0.5f;
+            if (lockAspectRatio)
+            {
+                float r = Mathf.Min(radiusX, radiusY);
+                radiusX = r;
+                radiusY = r;
+            }
+            float thick = Mathf.Clamp(thickness, 0, Mathf.Min(radiusX, radiusY));
+
             for (int i = 0; i < vertices; i++)
             {
-                float outer = -rectTransform.pivot.x * size * VerticesDistances[i];
-                float inner = -rectTransform.pivot.x * size * VerticesDistances[i] + thickness;
+                float d = VerticesDistances[i];
+                float outerX = radiusX * d;
+                float outerY = radiusY * d;
+                float innerX = Mathf.Max(0, outerX - thick);
+                float innerY = Mathf.Max(0, outerY - thick);
                 float rad = Mathf.Deg2Rad * (i * degrees + rotation);
-                float c = Mathf.Cos(rad);
-                float s = Mathf.Sin(rad);
+
+                float c = -Mathf.Cos(rad);
+                float s = -Mathf.Sin(rad);
                 uv0 = new Vector2(0, 1);
                 uv1 = new Vector2(1, 1);
                 uv2 = new Vector2(1, 0);
                 uv3 = new Vector2(0, 0);
                 pos0 = prevX;
-                pos1 = new Vector2(outer * c, outer * s);
+                pos1 = center + new Vector2(outerX * c, outerY * s);
                 if (fill)
                 {
-                    pos2 = Vector2.zero;
-                    pos3 = Vector2.zero;
+                    pos2 = center;
+                    pos3 = center;
                 }
                 else
                 {
-                    pos2 = new Vector2(inner * c, inner * s);
+                    pos2 = center + new Vector2(innerX * c, innerY * s);
                     pos3 = prevY;
                 }
                 prevX = pos1;
